@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<JUCERPROJECT id="TvejEe" name="The Fine Tooth Synth" projectType="audioplug"
+              useAppConfig="0" addUsingNamespaceToJuceHeader="1" displaySplashScreen="1"
+              jucerFormatVersion="1" companyName="Kevin Kopczynski" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
+              cppLanguageStandard="latest" pluginCode="TthM">
+  <MAINGROUP id="Ctpc67" name="The Fine Tooth Synth">
+    <GROUP id="{E32BED89-C940-72B2-AE31-B30F239E0374}" name="Source">
+      <GROUP id="{BBA40A8A-54BA-5BE6-7902-31B73F6395EF}" name="assets">
+        <FILE id="zKCMNM" name="Comfortaa-Regular.ttf" compile="0" resource="1"
+              file="Source/assets/Comfortaa-Regular.ttf"/>
+      </GROUP>
+      <GROUP id="{F9613AE4-7DF0-8A30-F62D-29D0855D368D}" name="GUI">
+        <FILE id="Y5Hkxs" name="ADSRDisplay.h" compile="0" resource="0" file="Source/GUI/ADSRDisplay.h"/>
+        <FILE id="ENg8tB" name="FilterDisplay.h" compile="0" resource="0" file="Source/GUI/FilterDisplay.h"/>
+        <FILE id="AYHDYr" name="FineToothLNF.h" compile="0" resource="0" file="Source/GUI/FineToothLNF.h"/>
+        <FILE id="AUYiZu" name="MultiChoiceButton.h" compile="0" resource="0"
+              file="Source/GUI/MultiChoiceButton.h"/>
+      </GROUP>
+      <GROUP id="{891D02B8-559C-6F8C-1359-D4949FC1C784}" name="audio">
+        <FILE id="yGNgIV" name="ADSR.h" compile="0" resource="0" file="Source/audio/ADSR.h"/>
+        <FILE id="HgNNcw" name="CombProcessor.cpp" compile="1" resource="0"
+              file="Source/audio/CombProcessor.cpp"/>
+        <FILE id="Cn96LG" name="CombProcessor.h" compile="0" resource="0" file="Source/audio/CombProcessor.h"/>
+      </GROUP>
+      <FILE id="lpz9hu" name="params.h" compile="0" resource="0" file="Source/params.h"/>
+      <FILE id="D4STcU" name="config.h" compile="0" resource="0" file="Source/config.h"/>
+      <FILE id="ArJgvL" name="PluginProcessor.cpp" compile="1" resource="0"
+            file="Source/PluginProcessor.cpp"/>
+      <FILE id="iFwZ48" name="PluginProcessor.h" compile="0" resource="0"
+            file="Source/PluginProcessor.h"/>
+      <FILE id="OmGFGM" name="PluginEditor.cpp" compile="1" resource="0"
+            file="Source/PluginEditor.cpp"/>
+      <FILE id="GLINKN" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+    </GROUP>
+  </MAINGROUP>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
+  <EXPORTFORMATS>
+    <XCODE_MAC targetFolder="Builds/MacOSX">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="Fine Tooth MIDI"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="Fine Tooth MIDI"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_dsp" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../../../Documents/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../../../Documents/JUCE/modules"/>
+      </MODULEPATHS>
+    </XCODE_MAC>
+  </EXPORTFORMATS>
+  <MODULES>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_plugin_client" showAllCode="1" useLocalCopy="0"
+            useGlobalPath="1"/>
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+  </MODULES>
+</JUCERPROJECT>
