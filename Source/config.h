@@ -3,7 +3,7 @@
 
 // GENERAL DEFINES
 #define A440                440.0f
-#define MAX_NUM_FILTERS     100
+#define MAX_NUM_FILTERS     50
 #define SMOOTH_SEC          0.01f
 #define NUM_VOICES          8
 
@@ -27,8 +27,8 @@
 #define TIMBRE_MAX          1.0f
 #define TIMBRE_DEFAULT      0.5f
 #define CURVE_MIN           -6.0f
-#define CURVE_MAX           0.5f
-#define CURVE_DEFAULT       0.0f
+#define CURVE_MAX           -0.5f
+#define CURVE_DEFAULT       -1.0f
 #define SPREAD_MIN          0.5f
 #define SPREAD_MAX          2.0f
 #define SPREAD_DEFAULT      1.0f

@@ -12,6 +12,8 @@
 #include "params.h"
 #include "config.h"
 #include "audio/CombProcessor.h"
+#include "synth/SynthVoice.h"
+#include "synth/SynthSound.h"
 
 using namespace audio;
 
@@ -61,23 +63,33 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
     
+    void panic();
+    void setInputMode (int state);
+    
     APVTS apvts;
     
-    std::array<ADSR, NUM_VOICES> adsr;
-    std::array<std::unique_ptr<CombProcessor>, NUM_VOICES> processor;
+//    std::array<ADSR, NUM_VOICES> adsr;
+//    std::array<std::unique_ptr<CombProcessor>, NUM_VOICES> processor;
 
 private:
-    void updateAll ();
-    void updateVoice (int voice);
-    void updateFilter ();
+//    void updateAll ();
+//    void updateVoice (int voice);
+//    void updateFilter ();
+    void setVoiceParams ();
     Random random;
     
+    Synthesiser synth;
+    
+    AudioBuffer<float> noiseBuffer;
+    
+    /*
     std::array<AudioBuffer<float>, NUM_VOICES> voiceBuffers;
     std::array<int, NUM_VOICES> currentNoteOn, currentVelocity, lastNoteOn;
     
     AudioBuffer<float> outBuffer;
-            
-    int inputMode, numActiveVoices;
+    */
+    
+    int inputMode; //, numActiveVoices;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FineToothMIDIAudioProcessor)
 };

@@ -14,14 +14,21 @@ FineToothMIDIAudioProcessor::FineToothMIDIAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
      : AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
-//                      #if ! JucePlugin_IsSynth
+                      #if ! JucePlugin_IsSynth
                        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-//                      #endif
+                      #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+#if PPDHasSidechain
+                       .withInput ("Sidechain", AudioChannelSet::stereo(), false)
+#endif
                      #endif
                        ), apvts(*this, nullptr, "PARAMETERS", createParameterLayout())
 #endif
 {
+    synth.addSound(new SynthSound());
+    
+    for (int i = 0; i < NUM_VOICES; ++i)
+        synth.addVoice(new SynthVoice());
 }
 
 FineToothMIDIAudioProcessor::~FineToothMIDIAudioProcessor()
@@ -45,11 +52,7 @@ bool FineToothMIDIAudioProcessor::acceptsMidi() const
 
 bool FineToothMIDIAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
-    return true;
-   #else
     return false;
-   #endif
 }
 
 bool FineToothMIDIAudioProcessor::isMidiEffect() const
@@ -93,8 +96,15 @@ void FineToothMIDIAudioProcessor::changeProgramName (int index, const juce::Stri
 //==============================================================================
 void FineToothMIDIAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    synth.setCurrentPlaybackSampleRate(sampleRate);
     
+    for (int i = 0; i < synth.getNumVoices(); ++i)
+        if (auto voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
+            voice->prepareToPlay(sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+        
+    noiseBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock);
     
+    /*
     // initialize comb processor
     dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
@@ -120,257 +130,142 @@ void FineToothMIDIAudioProcessor::prepareToPlay (double sampleRate, int samplesP
     }
     
     updateAll();
+     */
 }
 
 void FineToothMIDIAudioProcessor::releaseResources()
 {
-    for (int voice = 0; voice < NUM_VOICES; ++voice)
+    for (int i = 0; i < synth.getNumVoices(); ++i)
     {
-        adsr[voice].reset();
-        if (processor[voice])
-            processor[voice]->reset();
+        if (auto voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
+        {
+            voice->reset();
+        }
     }
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool FineToothMIDIAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
-    return true;
-  #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+    const auto mono = AudioChannelSet::mono();
+    const auto stereo = AudioChannelSet::stereo();
+
+    const auto mainSetIn = layouts.getMainInputChannelSet();
+    const auto mainSetOut = layouts.getMainOutputChannelSet();
+
+#if PPDHasSidechain
+    const auto scSetIn = layouts.getChannelSet(true, 1);
+    if(!scSetIn.isDisabled())
+        if (scSetIn != mono && scSetIn != stereo)
+            return false;
+#endif
+    if (mainSetOut != stereo)
         return false;
 
-    // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
-        return false;
-   #endif
-
     return true;
-  #endif
 }
 #endif
 
 void FineToothMIDIAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    juce::ScopedNoDenormals noDenormals;
+    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumOutputChannels = getTotalNumOutputChannels();
     int numSamples = buffer.getNumSamples();
-    float gainVal;
-    numActiveVoices = 0;
-    outBuffer.clear();
-    updateFilter();
+
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear (i, 0, buffer.getNumSamples());
     
-    // read midi data
-    for (const auto message : midiMessages)
-    {
-        auto currentMessage = message.getMessage();
-        // if message is note on, start adsr and tune filter
-        if (currentMessage.isNoteOn())
-        {
-            for (int voice = 0; voice < NUM_VOICES; ++voice)
-            {
-                if (! adsr[voice].isActive())
-                {
-//                    DBG(currentMessage.getDescription());
-                    adsr[voice].reset();
-                    currentNoteOn[voice] = currentMessage.getNoteNumber();
-                    currentVelocity[voice] = currentMessage.getVelocity();
-                    updateVoice(voice);
-                    adsr[voice].noteOn();
-                    break;
-                }
-            }
-        }
-        
-        if (currentMessage.isNoteOff())
-        {
-            int note = currentMessage.getNoteNumber();
-            
-            for (int voice = 0; voice < NUM_VOICES; ++voice)
-            {
-                if (currentNoteOn[voice] == note)
-                {
-//                    DBG(currentMessage.getDescription());
-                    adsr[voice].noteOff();
-                    break;
-                }
-            }
-        }
-    }
-        
+    setVoiceParams();
+    
     if (! inputMode)
     {
-        // fill buffer with noise
-        buffer.clear();
+        noiseBuffer.clear();
         for (int ch = 0; ch < getTotalNumOutputChannels(); ++ch)
             for (int s = 0; s < numSamples; ++s)
-                buffer.setSample(ch, s, random.nextFloat());
+                noiseBuffer.setSample(ch, s, random.nextFloat() * 0.5f);
     }
-    
-    
-    // copy contents of input buffer to voice buffers
-    float** bufferPtr = buffer.getArrayOfWritePointers();
-    float** outBufferPtr = outBuffer.getArrayOfWritePointers();
-    for (int voice = 0; voice < NUM_VOICES; ++voice)
+    else
     {
-        float** voicePtr = voiceBuffers[voice].getArrayOfWritePointers();
+        noiseBuffer.clear();
+        auto noiseBufferPtr = noiseBuffer.getArrayOfWritePointers();
+        auto bufferPtr = buffer.getArrayOfReadPointers();
         for (int ch = 0; ch < getTotalNumOutputChannels(); ++ch)
         {
-            SIMD::copy(voicePtr[ch], bufferPtr[ch], numSamples);
+            SIMD::copy(noiseBufferPtr[ch], bufferPtr[ch], numSamples);
         }
-        
-        // process voice buffer
-        if (adsr[voice].isActive())
-        {
-            processor[voice]->process(voiceBuffers[voice], numSamples);
-            numActiveVoices++;
-        }
-        
-        // apply adsr
-        for (int ch = 0; ch < getTotalNumOutputChannels(); ++ch)
-        {
-            gainVal = adsr[voice].getNextSample();
-            
-            for (int s = 0; s < numSamples; ++s)
-                voicePtr[ch][s] *= gainVal;
-        }
-        
-        for (int ch = 0; ch < getTotalNumOutputChannels(); ++ch)
-            SIMD::add(outBufferPtr[ch], voicePtr[ch], numSamples);
     }
     
-//    outBuffer.applyGain(1.0f / float(numActiveVoices));
+    for (int i = 0; i < synth.getNumVoices(); ++i)
+    {
+        if (auto voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
+        {
+            voice->fillBuffer(noiseBuffer, numSamples);
+        }
+    }
     
-    for (int ch = 0; ch < getTotalNumOutputChannels(); ++ch)
-        SIMD::copy(bufferPtr[ch], outBufferPtr[ch], numSamples);
+    buffer.clear();
+    
+    synth.renderNextBlock(buffer, midiMessages, 0, numSamples);
 }
 
-void FineToothMIDIAudioProcessor::updateAll()
+void FineToothMIDIAudioProcessor::setVoiceParams()
 {
     auto settings = getChainSettings(apvts);
-    
-    CombProcessor::FreqOutOfBoundsMode aliasMode;
-    switch (settings.aliasMode)
-    {
-        case 0:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Ignore;
-            break;
-            
-        case 1:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Wrap;
-            break;
-            
-        case 2:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Fold;
-            break;
-            
-        default:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Ignore;
-            DBG("alias mode is being funky");
-            break;
-    }
     
     inputMode = settings.inputMode;
     
-    float attack, decay, sustain, release, freq;
-    attack = settings.attack / 1000.0f;
-    decay = settings.decay / 1000.0f;
-    sustain = settings.sustain;
-    release = settings.release / 1000.0f;
-    
-    for (int voice = 0; voice < NUM_VOICES; ++voice)
+    for (int i = 0; i < synth.getNumVoices(); ++i)
     {
-        if (! adsr[voice].isActive())
-            adsr[voice].setParameters(ADSR::Parameters(attack, decay, sustain, release));
-        
-        freq = midiToFreq(currentNoteOn[voice]);
+        if (auto voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
+        {
+            auto& comb = voice->getCombProcessor();
+            auto& adsr = voice->getADSR();
             
-        processor[voice]->updateParams(CombProcessor::Parameters(freq, settings.resonance, settings.timbre, settings.curve, settings.spread, settings.glide, aliasMode));
+            CombProcessor::FreqOutOfBoundsMode mode;
+            switch (settings.aliasMode)
+            {
+                case 0:
+                    mode = CombProcessor::FreqOutOfBoundsMode::Ignore;
+                    break;
+                    
+                case 1:
+                    mode = CombProcessor::FreqOutOfBoundsMode::Wrap;
+                    break;
+                    
+                case 2:
+                    mode = CombProcessor::FreqOutOfBoundsMode::Fold;
+                    break;
+                    
+                default:
+                    mode = CombProcessor::FreqOutOfBoundsMode::Ignore;
+                    break;
+            }
+            
+            comb.updateParams(CombProcessor::Parameters(-1.0f, settings.resonance, settings.timbre, settings.curve, settings.spread, settings.glide, mode));
+            
+            if (! adsr.isActive())
+                adsr.setParameters(ADSR::Parameters(settings.attack / 1000.0f, settings.decay / 1000.0f, settings.sustain, settings.release / 1000.0f));
+        }
     }
 }
 
-void FineToothMIDIAudioProcessor::updateVoice(int voice)
+void FineToothMIDIAudioProcessor::panic()
 {
-    auto settings = getChainSettings(apvts);
-    
-    CombProcessor::FreqOutOfBoundsMode aliasMode;
-    switch (settings.aliasMode)
+    for (int i = 0; i < synth.getNumVoices(); ++i)
     {
-        case 0:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Ignore;
-            break;
+        if (auto voice = dynamic_cast<SynthVoice*>(synth.getVoice(i)))
+        {
+            auto& adsr = voice->getADSR();
             
-        case 1:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Wrap;
-            break;
-            
-        case 2:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Fold;
-            break;
-            
-        default:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Ignore;
-            DBG("alias mode is being funky");
-            break;
+            adsr.reset();
+        }
     }
-    
-    inputMode = settings.inputMode;
-    
-    if (! adsr[voice].isActive())
-    {
-        float attack, decay, sustain, release;
-        attack = settings.attack / 1000.0f;
-        decay = settings.decay / 1000.0f;
-        sustain = settings.sustain;
-        release = settings.release / 1000.0f;
-        
-        adsr[voice].setParameters(ADSR::Parameters(attack, decay, sustain, release));
-    }
-    
-    float freq;
-    freq = midiToFreq(currentNoteOn[voice]);
-        
-    processor[voice]->updateParams(CombProcessor::Parameters(freq, settings.resonance, settings.timbre, settings.curve, settings.spread, settings.glide, aliasMode));
 }
 
-void FineToothMIDIAudioProcessor::updateFilter()
+void FineToothMIDIAudioProcessor::setInputMode(int state)
 {
-    auto settings = getChainSettings(apvts);
-    float freq;
-    
-    CombProcessor::FreqOutOfBoundsMode aliasMode;
-    switch (settings.aliasMode)
-    {
-        case 0:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Ignore;
-            break;
-            
-        case 1:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Wrap;
-            break;
-            
-        case 2:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Fold;
-            break;
-            
-        default:
-            aliasMode = CombProcessor::FreqOutOfBoundsMode::Ignore;
-            DBG("alias mode is being funky");
-            break;
-    }
-    
-    
-    for (int voice = 0; voice < NUM_VOICES; ++voice)
-    {
-        freq = midiToFreq(currentNoteOn[voice]);
-        processor[voice]->updateParams(CombProcessor::Parameters(freq, settings.resonance, settings.timbre, settings.curve, settings.spread, settings.glide, aliasMode));
-    }
+    apvts.getParameter("Input Mode")->setValue(state);
 }
 
 //==============================================================================
@@ -388,15 +283,18 @@ juce::AudioProcessorEditor* FineToothMIDIAudioProcessor::createEditor()
 //==============================================================================
 void FineToothMIDIAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    juce::MemoryOutputStream mos(destData, true);
+            apvts.state.writeToStream(mos);
 }
 
 void FineToothMIDIAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    auto tree = juce::ValueTree::readFromData(data, sizeInBytes);
+        if ( tree.isValid() )
+        {
+            apvts.replaceState(tree);
+            setVoiceParams();
+        }
 }
 
 //==============================================================================

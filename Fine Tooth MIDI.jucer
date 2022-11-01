@@ -3,9 +3,14 @@
 <JUCERPROJECT id="TvejEe" name="The Fine Tooth Synth" projectType="audioplug"
               useAppConfig="0" addUsingNamespaceToJuceHeader="1" displaySplashScreen="1"
               jucerFormatVersion="1" companyName="Kevin Kopczynski" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
-              cppLanguageStandard="latest" pluginCode="TthM">
+              cppLanguageStandard="latest" pluginCode="TthM" defines="PPDHasSidechain = 1">
   <MAINGROUP id="Ctpc67" name="The Fine Tooth Synth">
     <GROUP id="{E32BED89-C940-72B2-AE31-B30F239E0374}" name="Source">
+      <GROUP id="{8F12F4C2-1CBA-126E-E91D-112F660FA53F}" name="synth">
+        <FILE id="xMqnef" name="SynthSound.h" compile="0" resource="0" file="Source/synth/SynthSound.h"/>
+        <FILE id="oTM6bx" name="SynthVoice.cpp" compile="1" resource="0" file="Source/synth/SynthVoice.cpp"/>
+        <FILE id="trCOgt" name="SynthVoice.h" compile="0" resource="0" file="Source/synth/SynthVoice.h"/>
+      </GROUP>
       <GROUP id="{BBA40A8A-54BA-5BE6-7902-31B73F6395EF}" name="assets">
         <FILE id="zKCMNM" name="Comfortaa-Regular.ttf" compile="0" resource="1"
               file="Source/assets/Comfortaa-Regular.ttf"/>
@@ -18,7 +23,6 @@
               file="Source/GUI/MultiChoiceButton.h"/>
       </GROUP>
       <GROUP id="{891D02B8-559C-6F8C-1359-D4949FC1C784}" name="audio">
-        <FILE id="yGNgIV" name="ADSR.h" compile="0" resource="0" file="Source/audio/ADSR.h"/>
         <FILE id="HgNNcw" name="CombProcessor.cpp" compile="1" resource="0"
               file="Source/audio/CombProcessor.cpp"/>
         <FILE id="Cn96LG" name="CombProcessor.h" compile="0" resource="0" file="Source/audio/CombProcessor.h"/>

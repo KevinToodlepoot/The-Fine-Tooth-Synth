@@ -51,7 +51,7 @@ public:
     
     //==============================================================================
     void handleNewParameterValue();
-    void rightButtonChanged();
+    void inputButtonClicked (int button);
 
 private:
     FineToothLNF customLNF;
@@ -64,6 +64,8 @@ private:
         resonance, timbre, curve, spread, glide;
     
     APVTS::SliderAttachment attackAttachment, decayAttachment, sustainAttachment, releaseAttachment, resonanceAttachment, timbreAttachment, curveAttachment, spreadAttachment, glideAttachment;
+    
+    APVTS::ButtonAttachment inputModeAttachment;
     
     ShapeButton clear;
     

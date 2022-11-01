@@ -24,6 +24,7 @@ FineToothMIDIAudioProcessorEditor::FineToothMIDIAudioProcessorEditor (FineToothM
     curveAttachment(p.apvts, "Curve", curve),
     spreadAttachment(p.apvts, "Spread", spread),
     glideAttachment(p.apvts, "Glide", glide),
+    inputModeAttachment(p.apvts, "Input Mode", sourceButtons[1]),
     clear("Clear", Colours::red, Colours::darkred, Colours::white),
     audioProcessor (p)
 {
@@ -32,13 +33,14 @@ FineToothMIDIAudioProcessorEditor::FineToothMIDIAudioProcessorEditor (FineToothM
     for ( auto* comp : getComps() )
         addAndMakeVisible(comp);
     
+    curve.setSkewFactor(2.0f);
+    
     Path circle;
     circle.addEllipse(0, 0, 20, 20);
     clear.setShape(circle, true, true, false);
     clear.onClick = [&] (void)
     {
-        for (int voice = 0; voice < NUM_VOICES; ++voice)
-            audioProcessor.adsr[voice].reset();
+        audioProcessor.panic();
     };
     
     for (auto& button : sourceButtons)
@@ -60,7 +62,8 @@ FineToothMIDIAudioProcessorEditor::FineToothMIDIAudioProcessorEditor (FineToothM
     auto settings = getChainSettings(audioProcessor.apvts);
     sourceButtons[0].setToggleState (! settings.inputMode, dontSendNotification);
 
-    sourceButtons[1].onStateChange = [this] { rightButtonChanged(); };
+    sourceButtons[0].onClick = [this] { inputButtonClicked(0); };
+    sourceButtons[1].onClick = [this] { inputButtonClicked(1); };
     
     setSize (800, 600);
 }
@@ -170,18 +173,16 @@ void FineToothMIDIAudioProcessorEditor::timerCallback()
 }
 
 //==============================================================================
-
-void FineToothMIDIAudioProcessorEditor::rightButtonChanged()
+void FineToothMIDIAudioProcessorEditor::inputButtonClicked (int button)
 {
-    auto settings = getChainSettings(audioProcessor.apvts);
-    auto buttonState = sourceButtons[1].getToggleState();
+    auto buttonState = sourceButtons[button].getToggleState();
     
-    sourceButtons[0].setToggleState(! buttonState, dontSendNotification);
-
-    if (settings.inputMode != buttonState)
-    {
-        settings.inputMode = buttonState;
-    }
+    sourceButtons[1 - button].setToggleState(! buttonState, dontSendNotification);
+    
+//    if (button && buttonState)
+//        audioProcessor.setInputMode(1);
+//    else if ( (!button) && buttonState)
+//        audioProcessor.setInputMode(0);
 }
 
 std::vector<Component*> FineToothMIDIAudioProcessorEditor::getComps()
