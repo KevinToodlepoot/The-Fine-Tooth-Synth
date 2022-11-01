@@ -55,14 +55,16 @@ public:
         FreqOutOfBoundsMode mode;
     };
     
-    CombProcessor(unsigned int _maxNumFilters, int _numChannels);
+    CombProcessor(unsigned int _maxNumFilters);
     ~CombProcessor() {;}
     
     void prepare(const dsp::ProcessSpec& spec);
     void reset();
-    void process(AudioBuffer<float> &buffer, int numSamples);
+    void process(AudioBuffer<float> &buffer, int numSamples, int startSample = 0);
     void updateParams(Parameters params);
     Parameters& getParams();
+    void setFrequency(float freq);
+    void setCurveOffset(float offset);
     
 private:
     bool updateFilterSettings(float curFreq, float curQ, float curSpread, int i);
@@ -70,7 +72,7 @@ private:
     void updateCurve(float curCurve, float curQ, int i);
     void updateParamsObject(float freq, float resonance, float timbre, float curve, float spread);
     
-    std::vector<std::array<Chain, MAX_NUM_FILTERS>> chain;
+    std::array< std::array<Chain, MAX_NUM_FILTERS>, 2 > chain;
     
     SmoothedValue<float, ValueSmoothingTypes::Multiplicative> freq, q, spread;
     SmoothedValue<float, ValueSmoothingTypes::Linear> timbre, curve;
@@ -80,8 +82,9 @@ private:
     
     AudioBuffer<float> tempBuffer, outBuffer;
     unsigned int maxNumFilters;
-    int numChannels, numFilters;
+    int numFilters;
     double sampleRate;
+    static constexpr int numChannels = 2;
 };
 
 }

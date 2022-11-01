@@ -13,11 +13,9 @@
 namespace audio
 {
 
-CombProcessor::CombProcessor(unsigned int _maxNumFilters, int _numChannels) :
-    chain(_numChannels),
+CombProcessor::CombProcessor(unsigned int _maxNumFilters) :
     curParams(A440, RESONANCE_DEFAULT, TIMBRE_DEFAULT, CURVE_DEFAULT, SPREAD_DEFAULT, GLIDE_DEFAULT),
     maxNumFilters(_maxNumFilters),
-    numChannels(_numChannels),
     numFilters(_maxNumFilters)
 {
     freq.setCurrentAndTargetValue(A440);
@@ -57,7 +55,7 @@ void CombProcessor::reset()
     
 }
 
-void CombProcessor::process(AudioBuffer<float> &buffer, int numSamples)
+void CombProcessor::process(AudioBuffer<float> &buffer, int numSamples, int startSample)
 {
     auto inWrite = buffer.getArrayOfWritePointers();
     auto tempWrite = tempBuffer.getArrayOfWritePointers();
@@ -69,25 +67,35 @@ void CombProcessor::process(AudioBuffer<float> &buffer, int numSamples)
     float curCurve = curve.getNextValue();
     float curSpread = spread.getNextValue();
     
+    DBG(curFreq);
+    
     updateParamsObject(curFreq, curQ, curTimbre, curCurve, curSpread);
     
     // clear output buffer
     for (int ch = 0; ch < numChannels; ++ch)
+    {
         SIMD::fill(outWrite[ch], 0.0f, numSamples);
+    }
     
     // process bandpass filter for each harmonic
     for (int i = 0; i < numFilters; ++i)
     {
         // update processors
         if (! updateFilterSettings(curFreq, curQ, curSpread, i))
+        {
             break;
+        }
         
         updateTimbre(curTimbre, i);
         updateCurve(curCurve, curQ, i);
             
         // copy contents of input buffer to temp buffer
+        tempBuffer.clear();
         for (int ch = 0; ch < numChannels; ++ch)
-            SIMD::copy(tempWrite[ch], inWrite[ch], numSamples);
+        {
+            auto inWritePtr = buffer.getReadPointer(ch, startSample);
+            SIMD::copy(tempWrite[ch], inWritePtr, numSamples);
+        }
         
         // process the temp buffer and add it to output buffer
         dsp::AudioBlock<float> block(tempBuffer);
@@ -116,7 +124,9 @@ void CombProcessor::process(AudioBuffer<float> &buffer, int numSamples)
 
 void CombProcessor::updateParams(Parameters params)
 {
-    freq.setTargetValue(params.freq);
+    if (params.freq != -1.0f)
+        freq.setTargetValue(params.freq);
+    
     q.setTargetValue(params.resonance);
     timbre.setTargetValue(params.timbre);
     curve.setTargetValue(params.curve);
@@ -134,6 +144,16 @@ void CombProcessor::updateParams(Parameters params)
 CombProcessor::Parameters& CombProcessor::getParams()
 {
     return curParams;
+}
+
+void CombProcessor::setFrequency(float freq)
+{
+    this->freq.setTargetValue(freq);
+}
+
+void CombProcessor::setCurveOffset(float offset)
+{
+    curve.setTargetValue(curParams.curve + offset);
 }
 
 void CombProcessor::updateParamsObject(float freq, float resonance, float timbre, float curve, float spread)
@@ -230,12 +250,14 @@ void CombProcessor::updateCurve(float curCurve, float curQ, int i)
 
 void CombProcessor::updateCurve(float curCurve, float curQ, int i)
 {
-    float gain;
+    float gain, curveQ;
     
-    gain = curCurve * i;
+    curveQ = curQ * (float(i) / 2.f + 1);
+    gain = Decibels::decibelsToGain( curCurve * i );
+    gain *= pow((1.f/curveQ), 0.6);
     
     for (int ch = 0; ch < numChannels; ++ch)
-        chain[ch][i].get<ChainPositions::Curve>().setGainDecibels(gain);
+        chain[ch][i].get<ChainPositions::Curve>().setGainLinear(gain);
 }
 
 }
